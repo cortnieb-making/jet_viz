@@ -118,7 +118,7 @@
 </head>
 <body>
   <header>
-    <h1>Jet (1964) — CORTNIE'S TEST Interactive Narrative + Researchability</h1>
+    <h1>Jet (1964) — CORTNIE'S TEST TEW Interactive Narrative + Researchability</h1>
     <h2>Its working! Observable Plot dashboard with fake data (drop in your CSVs when ready)</h2>
   </header>
   <div class="wrap">
@@ -641,31 +641,47 @@
     container.appendChild(fig);
   }
 
-  function drawColorFreq(container, issues) {
-    const freq = d3
-      .rollups(
-        issues,
-        (v) => v.length,
-        (d) => d.cover_color
-      )
-      .map(([cover_color, count]) => ({ cover_color, count }))
-      .sort((a, b) => d3.descending(a.count, b.count));
+ function drawColorFreq(container, issues) {
+  const freq = d3
+    .rollups(
+      issues,
+      v => v.length,
+      d => d.cover_color
+    )
+    .map(([cover_color, count]) => ({ cover_color, count }))
+    .sort((a, b) => d3.descending(a.count, b.count));
 
-    const fig = Plot.plot({
-      height: 320,
-      marginBottom: 60,
-      x: { label: "Cover Color", tickRotate: -35 },
-      y: { label: "Frequency" },
-      marks: [
-        Plot.barY(freq, {
-          x: "cover_color",
-          y: "count",
-          tip: { fill: "black", stroke: "white" }
-        })
-      ]
-    });
-    container.innerHTML = "";
-    container.appendChild(fig);
+  // Map your cover_color labels to actual colors
+  const colorMap = {
+    "Red": "#e63946",
+    "Blue": "#457b9d",
+    "Yellow": "#ffd60a",
+    "Green": "#2a9d8f",
+    "Orange": "#f4a261",
+    "Pink": "#ff6b9d",
+    "Purple": "#9b5de5",
+    "Black & White": "#aaaaaa"  // use gray for B&W
+  };
+
+  const fig = Plot.plot({
+    height: 320,
+    marginBottom: 60,
+    x: { label: "Cover Color", tickRotate: -35 },
+    y: { label: "Frequency" },
+    color: { legend: false }, // we don’t need a color legend here
+    marks: [
+      Plot.barY(freq, {
+        x: "cover_color",
+        y: "count",
+        // color each bar according to its cover_color label
+        fill: d => colorMap[d.cover_color] || "#666",
+        tip: { fill: "black", stroke: "white" }
+      })
+    ]
+  });
+
+  container.innerHTML = "";
+  container.appendChild(fig);
   }
 
   function drawOcc(container, people) {
