@@ -125,16 +125,14 @@
     <div class="controls">
       <div class="control">
         <label>Cover types <button class="btn" id="toggleAllTypes" style="padding: 4px 8px; font-size: 11px; margin-left: 4px;">All</button></label>
-        <select id="typeSelect" multiple size="6" title="Use Cmd/Ctrl to multi-select">
-          <option value="Civil Rights Leader" selected>Civil Rights Leader</option>
-          <option value="Activist" selected>Activist</option>
-          <option value="Entertainer" selected>Entertainer</option>
-          <option value="Athlete" selected>Athlete</option>
-          <option value="Everyday Woman" selected>Everyday Woman</option>
-          <option value="Diaspora Leader" selected>Diaspora Leader</option>
-          <option value="Businessperson" selected>Businessperson</option>
-          <option value="Group Cover" selected>Group Cover</option>
-        </select>
+       <select id="typeSelect" multiple size="6" title="Use Cmd/Ctrl to multi-select">
+  <option value="Freedom Struggle / State Power" selected>Freedom Struggle / State Power</option>
+  <option value="Education / Youth" selected>Education / Youth</option>
+  <option value="Beauty / Body" selected>Beauty / Body</option>
+  <option value="Diaspora" selected>Diaspora</option>
+  <option value="Everyday Excellence" selected>Everyday Excellence</option>
+  <option value="Other" selected>Other</option>
+</select>
       </div>
       <div class="control">
         <label>Sex filter</label>
@@ -212,543 +210,798 @@
   </div>
 
   <script type="module">
-    import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
-    import * as Plot from "https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6/+esm";
+  import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
+  import * as Plot from "https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6/+esm";
 
-    // --- Utilities ---
-    const parseDate = d3.timeParse("%Y-%m-%d");
-    const formatMonth = d3.timeFormat("%Y-%m");
-    const formatDate = d3.timeFormat("%Y-%m-%d");
-    const parseMonth = d3.timeParse("%Y-%m");
+  // --------- UTILITIES ---------
+  const parseDate = d3.timeParse("%Y-%m-%d");
+  const formatMonth = d3.timeFormat("%Y-%m");
+  const formatDate = d3.timeFormat("%Y-%m-%d");
+  const parseMonth = d3.timeParse("%Y-%m");
 
-    function weeklyDates1964(){
-      const start = new Date(1964,0,1); // Jan 1, 1964
-      const end = new Date(1964,11,31);
-      const dates = [];
-      let d = new Date(start);
-      while (d <= end){ dates.push(new Date(d)); d.setDate(d.getDate()+7); }
-      return dates;
-    }
+  const CSV_DEFAULT_PATH = "jet_1964_covers.csv"; // <-- your exported file
 
-    // Fake data pools
-    const coverTypes = ["Civil Rights Leader","Activist","Entertainer","Athlete","Everyday Woman","Diaspora Leader","Businessperson","Group Cover"];
-    const occByType = new Map([
-      ["Civil Rights Leader", ["Religious Leader","Organizer","Attorney"]],
-      ["Activist", ["Student Organizer","Community Organizer","Union Leader"]],
-      ["Entertainer", ["Singer","Actor","Comedian","Dancer"]],
-      ["Athlete", ["Boxer","Sprinter","Basketball Player","Baseball Player"]],
-      ["Everyday Woman", ["Student","Teacher","Nurse","Clerk"]],
-      ["Diaspora Leader", ["Politician","Diplomat","Writer"]],
-      ["Businessperson", ["Entrepreneur","Publisher","Editor"]],
-      ["Group Cover", ["Spouses","Family","Choir"]]
-    ]);
-    const poses = ["Portrait","Three-quarter","Full-length","Seated","Action"];
-    const colors = ["Red","Blue","Yellow","Green","Black & White","Orange","Pink","Purple"];
-    const notables = [
-      ["Rev. Dr. Martin Luther King Jr.", "M", "Religious Leader", "Civil Rights Leader"],
-      ["Coretta Scott King", "F", "Organizer", "Activist"],
-      ["Malcolm X", "M", "Religious Leader", "Civil Rights Leader"],
-      ["Fannie Lou Hamer", "F", "Community Organizer", "Activist"],
-      ["Ella Baker", "F", "Organizer", "Activist"],
-      ["Muhammad Ali", "M", "Boxer", "Athlete"],
-    ];
-    const topics = ["Voting Rights","Marches & Sit-ins","Education Access","Music & Film","Sports Milestones","International Solidarity","Publishing & Press Freedom","Community Health"];
+  function choice(a) {
+    return a[Math.floor(Math.random() * a.length)];
+  }
 
-    function choice(a){ return a[Math.floor(Math.random()*a.length)]; }
-    function fakeName(sex){
-      const firstM = ["James","Robert","John","Charles","George","David","Thomas","Willie","Henry","Louis"];
-      const firstF = ["Mary","Patricia","Barbara","Betty","Dorothy","Helen","Ruth","Shirley","Gloria","Carol"];
-      const last = ["Johnson","Williams","Brown","Jones","Davis","Miller","Wilson","Moore","Taylor","Anderson"];
-      return (sex==="M"?choice(firstM):choice(firstF)) + " " + choice(last);
-    }
-    function pickPersonForType(ct){
-      if (Math.random() < 0.15){
-        const c = notables.filter(d=>d[3]===ct);
-        if (c.length){ const [n,sx,occ] = c[Math.floor(Math.random()*c.length)]; return {name:n, sex:sx, occ}; }
+  function boolFrom(row, field) {
+    if (!field || !(field in row)) return 0;
+    const v = row[field];
+    if (v == null) return 0;
+    const s = String(v).trim().toLowerCase();
+    if (!s || s === "0" || s === "no" || s === "false" || s === "nan") return 0;
+    return 1;
+  }
+
+  // Find a column whose header starts with a given prefix
+  function findCol(columns, prefix) {
+    return columns.find((c) => c.startsWith(prefix)) || null;
+  }
+
+  // --------- NORMALIZE YOUR JET CSV INTO "ISSUES" SHAPE ---------
+  function normalizeIssuesFromJetCsv(rows) {
+    const columns = rows.columns || (rows.length ? Object.keys(rows[0]) : []);
+
+    const COL_WELLKNOWN = findCol(columns, "wellknown_theme:");
+    const COL_FREEDOM = findCol(columns, "freedomstruggle_theme:");
+    const COL_WOMEN = findCol(columns, "womensrights_theme:");
+    const COL_EDU = findCol(columns, "education_youth_theme:");
+    const COL_STATE = findCol(columns, "statepower_theme:");
+    const COL_BEAUTY = findCol(columns, "beautybodyimage_theme:");
+    const COL_DIASP = findCol(columns, "diaspora_poc_theme:");
+    const COL_ORDINARY = findCol(
+      columns,
+      "ordinaryexcellence_everyday_theme:"
+    );
+
+    return rows.map((r) => {
+      const year = +r.year || 1964;
+      const order = +r.issue_order || 1;
+      const date = new Date(year, 0, 1 + (order - 1) * 7); // weekly-ish timeline
+      const issue_date = formatDate(date);
+
+      const political_theme = COL_FREEDOM ? boolFrom(r, COL_FREEDOM) : 0;
+      const diaspora_theme = COL_DIASP ? boolFrom(r, COL_DIASP) : 0;
+      const everyday_theme = COL_ORDINARY ? boolFrom(r, COL_ORDINARY) : 0;
+      const education_youth_theme = COL_EDU ? boolFrom(r, COL_EDU) : 0;
+      const statepower_theme = COL_STATE ? boolFrom(r, COL_STATE) : 0;
+      const beautybodyimage_theme = COL_BEAUTY ? boolFrom(r, COL_BEAUTY) : 0;
+      const wellknown_theme = COL_WELLKNOWN ? boolFrom(r, COL_WELLKNOWN) : 0;
+      const womensrights_theme = COL_WOMEN ? boolFrom(r, COL_WOMEN) : 0;
+
+      const has_wikipedia = boolFrom(r, "has_wikipedia");
+      const has_nytimes = boolFrom(r, "has_nytimes");
+      const has_court_records = boolFrom(r, "has_courtrecords");
+      const has_social_descendants = boolFrom(r, "has_socialdescendants");
+      const in_archivegrid = boolFrom(r, "in_archivegrid");
+      const in_repository = boolFrom(r, "in_repository");
+
+      const traceability_score =
+        has_wikipedia +
+        has_nytimes +
+        has_court_records +
+        has_social_descendants +
+        in_archivegrid +
+        in_repository;
+
+      const searchability_status =
+        traceability_score >= 4
+          ? "High"
+          : traceability_score >= 2
+          ? "Medium"
+          : "Low";
+
+      // Derive a cover_type label from your themes
+      let cover_type = "Other";
+      if (political_theme || statepower_theme) {
+        cover_type = "Freedom Struggle / State Power";
+      } else if (education_youth_theme) {
+        cover_type = "Education / Youth";
+      } else if (beautybodyimage_theme) {
+        cover_type = "Beauty / Body";
+      } else if (diaspora_theme) {
+        cover_type = "Diaspora";
+      } else if (everyday_theme) {
+        cover_type = "Everyday Excellence";
       }
-      const sx = (ct==="Everyday Woman"||ct==="Group Cover")?"F":choice(["F","M"]);
-      const occ = choice(occByType.get(ct));
-      return {name:fakeName(sx), sex:sx, occ};
-    }
 
-    function buildFakeIssues(){
-      const dates = weeklyDates1964();
-      const rows = [];
-      const weights = new Map([["Civil Rights Leader",12],["Activist",10],["Entertainer",20],["Athlete",8],["Everyday Woman",25],["Diaspora Leader",8],["Businessperson",7],["Group Cover",10]]);
-      const weighted = Array.from(weights, ([k,w])=>Array(w).fill(k)).flat();
+      // Normalize sex to M/F where possible
+      let sex = (r.sex || "").trim();
+      sex = sex.toUpperCase().startsWith("F")
+        ? "F"
+        : sex.toUpperCase().startsWith("M")
+        ? "M"
+        : "";
 
-      for (const d of dates){
-        const ct = choice(weighted);
-        let {name, sex, occ} = pickPersonForType(ct);
-        if (ct === "Group Cover"){
-          const groupSize = choice([3,4]);
-          const names=[name], sexes=[sex], occs=[occ];
-          for (let i=1;i<groupSize;i++){ const sx = choice(["F","M"]); names.push(fakeName(sx)); sexes.push(sx); occs.push(choice(occByType.get(ct))); }
-          name = names.join("; "); sex = sexes.join("; "); occ = occs.join("; ");
-        }
-        const topic = choice(topics);
-        let headline = choice([
-          `Exclusive Interview: ${name.split(";")[0]} on ${topic}`,
-          `${name.split(";")[0]}: The Week's Most Talked-About ${occ.split(";")[0]}`,
-          `Behind the Movement: ${name.split(";")[0]} and ${topic}`,
-          `Style & Society: ${name.split(";")[0]} Sets the Tone`,
-          `Wives of Negro Freedom Fighters`,
-          `Diaspora Dispatch: ${topic}`,
-          `Big Stage Spotlight: ${name.split(";")[0]}`,
-          `Everyday Grace: ${name.split(";")[0]} is Poised and Pretty`
-        ]);
-        if (Math.random()<0.07) headline = "Wives of Negro Freedom Fighters";
-        const color = choice(colors);
-        const pose = choice(poses);
+      return {
+        issue_date,
+        year,
+        issue_order: +r.issue_order || null,
+        issue_number: r.issue_number || "",
+        cover_number: +r.cover_number || null,
 
-        const political_theme = +(ct==="Civil Rights Leader"||ct==="Activist"||headline.includes("Voting")||headline.includes("Marches"));
-        const diaspora_theme = +(ct==="Diaspora Leader"||headline.includes("Diaspora")||headline.includes("International"));
-        const everyday_theme = +(ct==="Everyday Woman"||headline.includes("Poised and Pretty")||headline.includes("Style & Society"));
+        person: r.person || "",
+        occupation: r.occupation || "",
+        race: r.race || "",
+        sex,
+        cover_age: r.cover_age || "",
 
-        const notable_boost = +notables.some(([nm])=> name.includes(nm));
-        const has_wikipedia = +(Math.random() < (0.25 + 0.5*notable_boost));
-        const has_nytimes = +(Math.random() < (0.20 + 0.45*notable_boost));
-        const has_court_records = +(Math.random() < (0.15 + 0.15*(1-political_theme)));
-        const has_social_descendants = +(Math.random() < (0.25 + 0.15*everyday_theme));
-        const in_archivegrid = +(Math.random() < (0.30 + 0.25*political_theme));
-        const in_repository = +(Math.random() < (0.35 + 0.25*diaspora_theme + 0.15*political_theme));
-        const traceability_score = has_wikipedia + has_nytimes + has_court_records + has_social_descendants + in_archivegrid + in_repository;
-        const searchability_status = traceability_score>=4?"High":(traceability_score>=2?"Medium":"Low");
+        cover_Blackgirl: boolFrom(r, "cover_Blackgirl"),
+        cover_pose: r.cover_pose || "",
+        cover_color: r.cover_color || "",
+        masthead_color: r.masthead_color || "",
+        cover_headline: r.cover_headline || "",
+        cover_headline2: r.cover_headline2 || "",
 
+        wellknown_theme,
+        freedomstruggle_theme: political_theme,
+        womensrights_theme,
+        education_youth_theme,
+        statepower_theme,
+        beautybodyimage_theme,
+        diaspora_poc_theme: diaspora_theme,
+        erasure_theme: boolFrom(r, "erasure_theme"),
+        ordinaryexcellence_everyday_theme: everyday_theme,
+
+        has_wikipedia,
+        has_nytimes,
+        has_court_records,
+        has_social_descendants,
+        in_archivegrid,
+        in_repository,
+
+        traceability_score,
+        searchability_status,
+        cover_type,
+        link_issue: r.link_issue || ""
+      };
+    });
+  }
+
+  // Expand each row into per-person rows (keeps structure from mock)
+  function explodePeople(issues) {
+    const rows = [];
+    for (const r of issues) {
+      const names = String(r.person || "")
+        .split(";")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const sexes = String(r.sex || "")
+        .split(";")
+        .map((s) => s.trim());
+      const occs = String(r.occupation || "")
+        .split(";")
+        .map((s) => s.trim());
+
+      while (sexes.length < names.length) sexes.push("");
+      while (occs.length < names.length) occs.push(r.occupation || "");
+
+      for (let i = 0; i < names.length; i++) {
         rows.push({
-          issue_date: formatDate(d),
-          cover_type: ct,
-          person: name,
-          sex: sex,
-          occupation: occ,
-          cover_headline: headline,
-          cover_color: color,
-          pose: pose,
-          political_theme,
-          diaspora_theme,
-          everyday_theme,
-          has_wikipedia,
-          has_nytimes,
-          has_court_records,
-          has_social_descendants,
-          in_archivegrid,
-          in_repository,
-          traceability_score,
-          searchability_status
+          issue_date: r.issue_date,
+          person: names[i],
+          sex: sexes[i],
+          occupation: occs[i],
+          cover_type: r.cover_type,
+          cover_headline: r.cover_headline,
+          cover_color: r.cover_color,
+          pose: r.cover_pose,
+          political_theme: r.freedomstruggle_theme,
+          diaspora_theme: r.diaspora_poc_theme,
+          everyday_theme: r.ordinaryexcellence_everyday_theme,
+          traceability_score: r.traceability_score,
+          searchability_status: r.searchability_status,
+          has_wikipedia: r.has_wikipedia,
+          has_nytimes: r.has_nytimes,
+          has_court_records: r.has_court_records,
+          has_social_descendants: r.has_social_descendants,
+          in_archivegrid: r.in_archivegrid,
+          in_repository: r.in_repository
         });
       }
-      return rows;
+    }
+    return rows;
+  }
+
+  function weightedIndex(weights) {
+    const total = d3.sum(weights);
+    let r = Math.random() * total;
+    for (let i = 0; i < weights.length; i++) {
+      r -= weights[i];
+      if (r < 0) return i;
+    }
+    return weights.length - 1;
+  }
+
+  // Very light synthetic "ledger" using your people list
+  function buildLedger(people) {
+    function fakeQueries(name) {
+      const base = [
+        `"${name}" Jet 1964`,
+        `"${name}" civil rights`,
+        `"${name}" site:wikipedia.org`,
+        `"${name}" archivegrid`,
+        `"${name}" obituary`,
+        `"${name}" newspapers 1960s`
+      ];
+      return d3.shuffle(base).slice(0, 3);
     }
 
-    function explodePeople(issues){
-      const rows = [];
-      for (const r of issues){
-        const names = String(r.person).split(";").map(s=>s.trim());
-        const sexes = String(r.sex).split(";").map(s=>s.trim());
-        const occs = String(r.occupation).split(";").map(s=>s.trim());
-        while (sexes.length < names.length) sexes.push(choice(["F","M"]));
-        while (occs.length < names.length) occs.push(choice(Array.from(occByType.values()).flat()));
-        for (let i=0;i<names.length;i++){
-          rows.push({
-            issue_date: r.issue_date,
-            person: names[i],
-            sex: sexes[i],
-            occupation: occs[i],
-            cover_type: r.cover_type,
-            cover_headline: r.cover_headline,
-            cover_color: r.cover_color,
-            pose: r.pose,
-            political_theme: r.political_theme,
-            diaspora_theme: r.diaspora_theme,
-            everyday_theme: r.everyday_theme,
-            traceability_score: r.traceability_score,
-            searchability_status: r.searchability_status,
-            has_wikipedia: r.has_wikipedia,
-            has_nytimes: r.has_nytimes,
-            has_court_records: r.has_court_records,
-            has_social_descendants: r.has_social_descendants,
-            in_archivegrid: r.in_archivegrid,
-            in_repository: r.in_repository
-          })
-        }
-      }
-      return rows;
-    }
-
-    function weightedIndex(weights){
-      const total = d3.sum(weights);
-      let r = Math.random() * total;
-      for (let i=0;i<weights.length;i++){ r -= weights[i]; if (r < 0) return i; }
-      return weights.length-1;
-    }
-
-    function buildLedger(people){
-      function fakeQueries(name){
-        const base = [`"${name}" Jet 1964`,`"${name}" civil rights`,`"${name}" site:wikipedia.org`,`"${name}" archivegrid`,`"${name}" obituary`,`"${name}" newspapers 1960s`];
-        return d3.shuffle(base).slice(0,3);
-      }
-      const statuses = ["Untraced","Partially Traced","Fully Traced"]; const weights = [2,4,4];
-      const srcs = ["Wikipedia; NYT; ArchiveGrid","ProQuest; Local Newspaper","Ancestry; Court Archive","Institutional Repository; Social Media Descendants"];
-      const notes = {"Untraced":"No authoritative record found; notes added to revisit.","Partially Traced":"One or two sources found; identity or date uncertain.","Fully Traced":"Multiple sources confirm identity and life dates."};
-      const sample = people.length>40? d3.shuffle(people).slice(0,40) : people;
-      const rows = sample.map(p=>{
-        const q = fakeQueries(p.person);
-        const status = statuses[weightedIndex(weights)];
-        const monthIndex = Math.floor(Math.random()*12);
-        const day = 1 + Math.floor(Math.random()*28);
-        const date = new Date(1964, monthIndex, day);
-        return { date: formatDate(date), issue_date: p.issue_date, person: p.person, query_1:q[0], query_2:q[1], query_3:q[2], sources_checked: choice(srcs), status, outcome_notes: notes[status] };
-      });
-      return rows.sort((a,b)=>d3.ascending(a.date,b.date));
-    }
-
-    // --- State ---
-    let ISSUES = buildFakeIssues();
-    let PEOPLE = explodePeople(ISSUES);
-    let LEDGER = buildLedger(PEOPLE);
-
-    // --- Filtering ---
-    const els = {
-      typeSelect: document.getElementById('typeSelect'),
-      sexSelect: document.getElementById('sexSelect'),
-      scoreRange: document.getElementById('scoreRange'),
-      scoreVal: document.getElementById('scoreVal'),
-      t_pol: document.getElementById('t_pol'),
-      t_every: document.getElementById('t_every'),
-      t_dias: document.getElementById('t_dias'),
-      t_ent: document.getElementById('t_ent'),
-      searchBox: document.getElementById('searchBox'),
-      searchSuggestions: document.getElementById('searchSuggestions'),
-      resetBtn: document.getElementById('resetBtn'),
-      toggleAllTypes: document.getElementById('toggleAllTypes'),
-      csvIssues: document.getElementById('csvIssues'),
-      csvLedger: document.getElementById('csvLedger')
+    const statuses = ["Untraced", "Partially Traced", "Fully Traced"];
+    const weights = [2, 4, 4];
+    const srcs = [
+      "Wikipedia; NYT; ArchiveGrid",
+      "ProQuest; Local Newspaper",
+      "Ancestry; Court Archive",
+      "Institutional Repository; Social Media Descendants"
+    ];
+    const notes = {
+      Untraced: "No authoritative record found; notes added to revisit.",
+      "Partially Traced":
+        "One or two sources found; identity or date uncertain.",
+      "Fully Traced":
+        "Multiple sources confirm identity and life dates."
     };
 
-    function selectedTypes(){ return Array.from(els.typeSelect.selectedOptions).map(o=>o.value); }
+    const sample =
+      people.length > 40 ? d3.shuffle(people).slice(0, 40) : people;
 
-    function applyFilters(){
-      const types = new Set(selectedTypes());
-      const sex = els.sexSelect.value;
-      const minScore = +els.scoreRange.value;
-      const q = els.searchBox.value.trim().toLowerCase();
+    const rows = sample.map((p) => {
+      const q = fakeQueries(p.person);
+      const status = statuses[weightedIndex(weights)];
+      const monthIndex = Math.floor(Math.random() * 12);
+      const day = 1 + Math.floor(Math.random() * 28);
+      const date = new Date(1964, monthIndex, day);
+      return {
+        date: formatDate(date),
+        issue_date: p.issue_date,
+        person: p.person,
+        query_1: q[0],
+        query_2: q[1],
+        query_3: q[2],
+        sources_checked: choice(srcs),
+        status,
+        outcome_notes: notes[status]
+      };
+    });
 
-      const issuePass = ISSUES.filter(r=> types.has(r.cover_type) && r.traceability_score>=minScore && (!q || (r.person.toLowerCase().includes(q) || r.cover_headline.toLowerCase().includes(q) || r.occupation.toLowerCase().includes(q))));
+    return rows.sort((a, b) => d3.ascending(a.date, b.date));
+  }
 
-      const passDates = new Set(issuePass.map(d=>d.issue_date));
-      const peoplePass = PEOPLE.filter(p=> passDates.has(p.issue_date) && (sex==='any' || p.sex===sex) && (!q || (p.person.toLowerCase().includes(q) || p.occupation.toLowerCase().includes(q) || p.cover_headline.toLowerCase().includes(q))));
+  // --------- STATE ---------
+  let ISSUES = [];
+  let PEOPLE = [];
+  let LEDGER = [];
 
-      const ledgerPass = LEDGER.filter(l=> passDates.has(l.issue_date) && (!q || l.person.toLowerCase().includes(q)));
+  const els = {
+    typeSelect: document.getElementById("typeSelect"),
+    sexSelect: document.getElementById("sexSelect"),
+    scoreRange: document.getElementById("scoreRange"),
+    scoreVal: document.getElementById("scoreVal"),
+    t_pol: document.getElementById("t_pol"),
+    t_every: document.getElementById("t_every"),
+    t_dias: document.getElementById("t_dias"),
+    t_ent: document.getElementById("t_ent"),
+    searchBox: document.getElementById("searchBox"),
+    searchSuggestions: document.getElementById("searchSuggestions"),
+    resetBtn: document.getElementById("resetBtn"),
+    toggleAllTypes: document.getElementById("toggleAllTypes"),
+    csvIssues: document.getElementById("csvIssues"),
+    csvLedger: document.getElementById("csvLedger")
+  };
 
-      return {issuePass, peoplePass, ledgerPass};
+  function selectedTypes() {
+    return Array.from(els.typeSelect.selectedOptions).map((o) => o.value);
+  }
+
+  function applyFilters() {
+    const types = new Set(selectedTypes());
+    const sex = els.sexSelect.value;
+    const minScore = +els.scoreRange.value;
+    const q = els.searchBox.value.trim().toLowerCase();
+
+    const issuePass = ISSUES.filter((r) => {
+      const textHit =
+        !q ||
+        r.person.toLowerCase().includes(q) ||
+        (r.cover_headline || "").toLowerCase().includes(q) ||
+        (r.occupation || "").toLowerCase().includes(q);
+      return (
+        types.has(r.cover_type) &&
+        r.traceability_score >= minScore &&
+        textHit
+      );
+    });
+
+    const passDates = new Set(issuePass.map((d) => d.issue_date));
+    const peoplePass = PEOPLE.filter((p) => {
+      const textHit =
+        !q ||
+        p.person.toLowerCase().includes(q) ||
+        (p.occupation || "").toLowerCase().includes(q) ||
+        (p.cover_headline || "").toLowerCase().includes(q);
+      return (
+        passDates.has(p.issue_date) &&
+        (sex === "any" || p.sex === sex) &&
+        textHit
+      );
+    });
+
+    const ledgerPass = LEDGER.filter((l) => {
+      const textHit = !q || l.person.toLowerCase().includes(q);
+      return passDates.has(l.issue_date) && textHit;
+    });
+
+    return { issuePass, peoplePass, ledgerPass };
+  }
+
+  // --------- CHARTS (same as mock, but wired to your fields) ---------
+  function drawThemes(container, issues) {
+    const byMonth = d3
+      .rollups(
+        issues,
+        (v) => ({
+          CivilRights: d3.sum(v, (d) => d.freedomstruggle_theme),
+          Everyday: d3.sum(v, (d) => d.ordinaryexcellence_everyday_theme),
+          Diaspora: d3.sum(v, (d) => d.diaspora_poc_theme),
+          Entertainment: d3.sum(v, (d) => d.beautybodyimage_theme) // repurposed
+        }),
+        (d) => formatMonth(parseDate(d.issue_date))
+      )
+      .map(([month, obj]) => ({
+        month,
+        ...obj,
+        mdate: parseMonth(month)
+      }))
+      .sort((a, b) => d3.ascending(a.mdate, b.mdate));
+
+    const long = [];
+    for (const r of byMonth) {
+      if (els.t_pol.checked)
+        long.push({ mdate: r.mdate, theme: "Civil Rights", value: r.CivilRights });
+      if (els.t_every.checked)
+        long.push({ mdate: r.mdate, theme: "Everyday", value: r.Everyday });
+      if (els.t_dias.checked)
+        long.push({ mdate: r.mdate, theme: "Diaspora", value: r.Diaspora });
+      if (els.t_ent.checked)
+        long.push({
+          mdate: r.mdate,
+          theme: "Beauty / Body",
+          value: r.Entertainment
+        });
     }
 
-    // --- Charts ---
-    function drawThemes(container, issues){
-      const byMonth = d3.rollups(issues, v=>({
-        CivilRights: d3.sum(v, d=>d.political_theme),
-        Everyday: d3.sum(v, d=>d.everyday_theme),
-        Diaspora: d3.sum(v, d=>d.diaspora_theme),
-        Entertainment: d3.sum(v, d=> d.cover_type==="Entertainer" ? 1:0)
-      }), d=> formatMonth(parseDate(d.issue_date)))
-      .map(([month, obj])=>({month, ...obj, mdate: parseMonth(month)}))
-      .sort((a,b)=> d3.ascending(a.mdate,b.mdate));
+    const fig = Plot.plot({
+      height: 320,
+      marginLeft: 42,
+      marginBottom: 70,
+      grid: true,
+      x: {
+        label: "Month",
+        ticks: d3.timeMonth.every(1),
+        tickFormat: d3.timeFormat("%Y-%m"),
+        tickRotate: -45
+      },
+      y: { label: "Issue Count", nice: true },
+      color: { legend: true },
+      marks: [
+        Plot.ruleY([0]),
+        Plot.lineY(long, {
+          x: "mdate",
+          y: "value",
+          stroke: "theme",
+          marker: true,
+          tip: { fill: "black", stroke: "white" }
+        })
+      ]
+    });
+    container.innerHTML = "";
+    container.appendChild(fig);
+  }
 
-      const long = [];
-      for (const r of byMonth){
-        if (els.t_pol.checked) long.push({mdate:r.mdate, theme:"Civil Rights", value:r.CivilRights});
-        if (els.t_every.checked) long.push({mdate:r.mdate, theme:"Everyday", value:r.Everyday});
-        if (els.t_dias.checked) long.push({mdate:r.mdate, theme:"Diaspora", value:r.Diaspora});
-        if (els.t_ent.checked) long.push({mdate:r.mdate, theme:"Entertainment", value:r.Entertainment});
-      }
+  function drawFemaleShare(container, people) {
+    const byMonth = d3
+      .rollups(
+        people,
+        (v) => d3.mean(v, (d) => (d.sex === "F" ? 1 : 0)),
+        (d) => formatMonth(parseDate(d.issue_date))
+      )
+      .map(([month, share]) => ({
+        month,
+        share,
+        mdate: parseMonth(month)
+      }))
+      .sort((a, b) => d3.ascending(a.mdate, b.mdate));
 
-      const fig = Plot.plot({
-        height: 320,
-        marginLeft: 42,
-        marginBottom: 70,
-        grid: true,
-        x: {label: 'Month', ticks: d3.timeMonth.every(1), tickFormat: d3.timeFormat('%Y-%m'), tickRotate: -45},
-        y: {label: 'Issue Count', nice:true},
-        color: {legend:true},
-        marks: [
-          Plot.ruleY([0]),
-          Plot.lineY(long, {x:'mdate', y:'value', stroke:'theme', marker:true, tip: {fill: "black", stroke: "white"}})
-        ]
-      });
-      container.innerHTML = '';
-      container.appendChild(fig);
+    const fig = Plot.plot({
+      height: 320,
+      marginBottom: 70,
+      grid: true,
+      x: {
+        label: "Month",
+        ticks: d3.timeMonth.every(1),
+        tickFormat: d3.timeFormat("%Y-%m"),
+        tickRotate: -45
+      },
+      y: { label: "Share Female", domain: [0, 1] },
+      marks: [
+        Plot.ruleY([0, 0.5, 1], {
+          strokeOpacity: (v) => (v === 1 ? 0.25 : 0.1)
+        }),
+        Plot.lineY(byMonth, {
+          x: "mdate",
+          y: "share",
+          marker: true,
+          tip: { fill: "black", stroke: "white" }
+        })
+      ]
+    });
+    container.innerHTML = "";
+    container.appendChild(fig);
+  }
+
+  function drawColorFreq(container, issues) {
+    const freq = d3
+      .rollups(
+        issues,
+        (v) => v.length,
+        (d) => d.cover_color
+      )
+      .map(([cover_color, count]) => ({ cover_color, count }))
+      .sort((a, b) => d3.descending(a.count, b.count));
+
+    const fig = Plot.plot({
+      height: 320,
+      marginBottom: 60,
+      x: { label: "Cover Color", tickRotate: -35 },
+      y: { label: "Frequency" },
+      marks: [
+        Plot.barY(freq, {
+          x: "cover_color",
+          y: "count",
+          tip: { fill: "black", stroke: "white" }
+        })
+      ]
+    });
+    container.innerHTML = "";
+    container.appendChild(fig);
+  }
+
+  function drawOcc(container, people) {
+    const top = d3
+      .rollups(
+        people,
+        (v) => v.length,
+        (d) => d.occupation
+      )
+      .map(([occupation, count]) => ({ occupation, count }))
+      .sort((a, b) => d3.descending(a.count, b.count))
+      .slice(0, 10)
+      .sort((a, b) => d3.ascending(a.count, b.count));
+
+    const fig = Plot.plot({
+      height: 320,
+      marginLeft: 150,
+      x: { label: "Count" },
+      marks: [
+        Plot.barX(top, {
+          x: "count",
+          y: "occupation",
+          sort: { y: "x" },
+          tip: { fill: "black", stroke: "white" }
+        })
+      ]
+    });
+    container.innerHTML = "";
+    container.appendChild(fig);
+  }
+
+  function drawStages(container, issues) {
+    const keys = [
+      "has_wikipedia",
+      "has_nytimes",
+      "has_court_records",
+      "has_social_descendants",
+      "in_archivegrid",
+      "in_repository"
+    ];
+    const rows = keys.map((k) => ({
+      stage: k,
+      count: d3.sum(issues, (d) => d[k])
+    }));
+
+    const fig = Plot.plot({
+      height: 320,
+      marginBottom: 50,
+      x: { tickRotate: -25 },
+      y: { label: "Issues with Evidence" },
+      marks: [
+        Plot.barY(rows, {
+          x: "stage",
+          y: "count",
+          tip: { fill: "black", stroke: "white" }
+        })
+      ]
+    });
+    container.innerHTML = "";
+    container.appendChild(fig);
+  }
+
+  function drawScatter(container, issues) {
+    const data = issues.map((d) => ({
+      date: parseDate(d.issue_date),
+      score: d.traceability_score,
+      cover_type: d.cover_type,
+      title: d.cover_headline,
+      people: d.person
+    }));
+
+    const fig = Plot.plot({
+      height: 340,
+      grid: true,
+      x: { label: "Issue Date (1964)" },
+      y: { label: "Traceability Score (0–6)", domain: [0, 6] },
+      color: { legend: true },
+      marks: [
+        Plot.dot(data, {
+          x: "date",
+          y: "score",
+          stroke: "cover_type",
+          fill: "cover_type",
+          r: 5,
+          tip: { fill: "black", stroke: "white" },
+          title: (d) => `${d.people}\n${d.title}`
+        })
+      ]
+    });
+    container.innerHTML = "";
+    container.appendChild(fig);
+  }
+
+  function drawLedgerTable(container, ledger) {
+    const rows = ledger.slice(0, 250);
+    const table = document.createElement("table");
+    table.innerHTML =
+      "<thead><tr><th>Date</th><th>Issue</th><th>Person</th><th>Queries</th><th>Sources</th><th>Status</th></tr></thead>";
+    const tb = document.createElement("tbody");
+    for (const r of rows) {
+      const q = [r.query_1, r.query_2, r.query_3]
+        .filter(Boolean)
+        .join(" • ");
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${r.date}</td><td>${r.issue_date}</td><td>${r.person}</td><td>${q}</td><td><span class="pill">${r.sources_checked}</span></td><td><span class="pill">${r.status}</span></td>`;
+      tr.title = r.outcome_notes;
+      tb.appendChild(tr);
     }
+    table.appendChild(tb);
+    container.innerHTML = "";
+    container.appendChild(table);
+  }
 
-    function drawFemaleShare(container, people){
-      const byMonth = d3.rollups(people, v=> d3.mean(v, d=> d.sex==='F'?1:0), d=> formatMonth(parseDate(d.issue_date)))
-        .map(([month, share])=>({month, share, mdate: parseMonth(month)}))
-        .sort((a,b)=> d3.ascending(a.mdate,b.mdate));
-      const fig = Plot.plot({
-        height: 320,
-        marginBottom: 70,
-        grid: true,
-        x: {label:'Month', ticks: d3.timeMonth.every(1), tickFormat: d3.timeFormat('%Y-%m'), tickRotate:-45},
-        y: {label:'Share Female', domain:[0,1]},
-        marks: [
-          Plot.ruleY([0,0.5,1], {strokeOpacity: i=> i===1?0.25:0.1}),
-          Plot.lineY(byMonth, {x:'mdate', y:'share', marker:true, tip: {fill: "black", stroke: "white"}})
-        ]
-      });
-      container.innerHTML=''; container.appendChild(fig);
-    }
+  const refs = {
+    figThemes: document.getElementById("figThemes"),
+    figFemale: document.getElementById("figFemale"),
+    figColors: document.getElementById("figColors"),
+    figOcc: document.getElementById("figOcc"),
+    figStages: document.getElementById("figStages"),
+    figScatter: document.getElementById("figScatter"),
+    ledgerWrap: document.getElementById("ledgerWrap")
+  };
 
-    function drawColorFreq(container, issues){
-      const freq = d3.rollups(issues, v=>v.length, d=>d.cover_color).map(([cover_color,count])=>({cover_color,count})).sort((a,b)=> d3.descending(a.count,b.count));
-      const fig = Plot.plot({
-        height: 320,
-        marginBottom: 60,
-        x: {label:'Cover Color', tickRotate:-35},
-        y: {label:'Frequency'},
-        marks: [Plot.barY(freq,{x:'cover_color', y:'count', tip: {fill: "black", stroke: "white"}})]
-      });
-      container.innerHTML=''; container.appendChild(fig);
-    }
+  function renderAll() {
+    if (!ISSUES.length) return;
+    els.scoreVal.textContent = els.scoreRange.value;
+    const { issuePass, peoplePass, ledgerPass } = applyFilters();
+    drawThemes(refs.figThemes, issuePass);
+    drawFemaleShare(refs.figFemale, peoplePass);
+    drawColorFreq(refs.figColors, issuePass);
+    drawOcc(refs.figOcc, peoplePass);
+    drawStages(refs.figStages, issuePass);
+    drawScatter(refs.figScatter, issuePass);
+    drawLedgerTable(refs.ledgerWrap, ledgerPass);
+    enforceTooltipStyle();
+  }
 
-    function drawOcc(container, people){
-      const top = d3.rollups(people, v=>v.length, d=>d.occupation).map(([occupation,count])=>({occupation,count}))
-        .sort((a,b)=> d3.descending(a.count,b.count)).slice(0,10).sort((a,b)=> d3.ascending(a.count,b.count));
-      const fig = Plot.plot({
-        height: 320,
-        marginLeft: 150,
-        x: {label:'Count'},
-        marks: [Plot.barX(top,{x:'count', y:'occupation', sort:{y:'x'}, tip: {fill: "black", stroke: "white"}})]
-      });
-      container.innerHTML=''; container.appendChild(fig);
-    }
-
-    function drawStages(container, issues){
-      const keys = ["has_wikipedia","has_nytimes","has_court_records","has_social_descendants","in_archivegrid","in_repository"];
-      const rows = keys.map(k=> ({stage:k, count: d3.sum(issues, d=> d[k])}));
-      const fig = Plot.plot({ 
-        height: 320, 
-        marginBottom:50, 
-        x:{tickRotate:-25}, 
-        y:{label:'Issues with Evidence'}, 
-        marks:[ Plot.barY(rows,{x:'stage', y:'count', tip: {fill: "black", stroke: "white"}}) ]
-      });
-      container.innerHTML=''; container.appendChild(fig);
-    }
-
-    function drawScatter(container, issues){
-      const data = issues.map(d=> ({
-        date: parseDate(d.issue_date),
-        score: d.traceability_score,
-        cover_type: d.cover_type,
-        title: d.cover_headline,
-        people: d.person
-      }));
-      const fig = Plot.plot({
-        height: 340,
-        grid:true,
-        x: {label:'Issue Date (1964)'},
-        y: {label:'Traceability Score (0–6)', domain:[0,6]},
-        color: {legend:true},
-        marks:[
-          Plot.dot(data, {x:'date', y:'score', stroke:'cover_type', fill:'cover_type', r:5, tip: {fill: "black", stroke: "white"}, title: d=> `${d.people}\n${d.title}`})
-        ]
-      });
-      container.innerHTML=''; container.appendChild(fig);
-    }
-
-    function drawLedgerTable(container, ledger){
-      const rows = ledger.slice(0,250); // cap for speed
-      const table = document.createElement('table');
-      table.innerHTML = `<thead><tr><th>Date</th><th>Issue</th><th>Person</th><th>Queries</th><th>Sources</th><th>Status</th></tr></thead>`;
-      const tb = document.createElement('tbody');
-      for (const r of rows){
-        const tr = document.createElement('tr');
-        const q = [r.query_1, r.query_2, r.query_3].filter(Boolean).join(' • ');
-        tr.innerHTML = `<td>${r.date}</td><td>${r.issue_date}</td><td>${r.person}</td><td>${q}</td><td><span class="pill">${r.sources_checked}</span></td><td><span class="pill">${r.status}</span></td>`;
-        tr.title = r.outcome_notes;
-        tb.appendChild(tr);
-      }
-      table.appendChild(tb);
-      container.innerHTML=''; container.appendChild(table);
-    }
-
-    // --- Render orchestrator ---
-    const refs = {
-      figThemes: document.getElementById('figThemes'),
-      figFemale: document.getElementById('figFemale'),
-      figColors: document.getElementById('figColors'),
-      figOcc: document.getElementById('figOcc'),
-      figStages: document.getElementById('figStages'),
-      figScatter: document.getElementById('figScatter'),
-      ledgerWrap: document.getElementById('ledgerWrap')
-    };
-
-    function renderAll(){
-      els.scoreVal.textContent = els.scoreRange.value;
-      const {issuePass, peoplePass, ledgerPass} = applyFilters();
-      drawThemes(refs.figThemes, issuePass);
-      drawFemaleShare(refs.figFemale, peoplePass);
-      drawColorFreq(refs.figColors, issuePass);
-      drawOcc(refs.figOcc, peoplePass);
-      drawStages(refs.figStages, issuePass);
-      drawScatter(refs.figScatter, issuePass);
-      drawLedgerTable(refs.ledgerWrap, ledgerPass);
-      enforceTooltipStyle();
-    }
-
-    // --- CSV loading ---
-    async function readCSV(file){
-      const text = await file.text();
-      return d3.csvParse(text);
-    }
-
-    els.csvIssues.addEventListener('change', async (e)=>{
-      const f = e.target.files[0]; if(!f) return;
-      const rows = await readCSV(f);
-      // minimal validation
-      const required = new Set(["issue_date","cover_type","person","sex","occupation","cover_headline","cover_color","pose"]);
-      const hasAll = Array.from(required).every(k=> rows.columns.includes(k));
-      if (!hasAll){
-        alert('Your CSV is missing required columns. See expected schema under the controls. Using fake data instead.');
-        return;
-      }
-      // Coerce numeric fields if present
-      const numKeys = ["political_theme","diaspora_theme","everyday_theme","has_wikipedia","has_nytimes","has_court_records","has_social_descendants","in_archivegrid","in_repository","traceability_score"];
-      for (const r of rows){ for (const k of numKeys){ if (k in r) r[k] = +r[k] || 0; }
-        if (!('traceability_score' in r)){
-          r.traceability_score = ["has_wikipedia","has_nytimes","has_court_records","has_social_descendants","in_archivegrid","in_repository"].reduce((sum,k)=> sum + (+r[k]||0), 0);
-        }
-        r.searchability_status = r.traceability_score>=4?"High":(r.traceability_score>=2?"Medium":"Low");
-      }
-      ISSUES = rows;
+  // --------- CSV LOADING (DEFAULT + OPTIONAL UPLOAD) ---------
+  async function initFromDefaultCsv() {
+    try {
+      const rows = await d3.csv(CSV_DEFAULT_PATH);
+      ISSUES = normalizeIssuesFromJetCsv(rows);
       PEOPLE = explodePeople(ISSUES);
-      LEDGER = buildLedger(PEOPLE); // keep auto-ledger for convenience unless user loads one
+      LEDGER = buildLedger(PEOPLE);
       renderAll();
-    });
-
-    els.csvLedger.addEventListener('change', async (e)=>{
-      const f = e.target.files[0]; if(!f) return;
-      const rows = await readCSV(f);
-      const required = new Set(["date","issue_date","person","query_1","query_2","query_3","sources_checked","status","outcome_notes"]);
-      const hasAll = Array.from(required).every(k=> rows.columns.includes(k));
-      if (!hasAll){
-        alert('Ledger CSV missing required columns. Keeping synthetic ledger.');
-        return;
-      }
-      LEDGER = rows; renderAll();
-    });
-
-    // --- Events ---
-    [els.typeSelect, els.sexSelect, els.scoreRange, els.t_pol, els.t_every, els.t_dias, els.t_ent].forEach(el=> el.addEventListener('input', renderAll));
-    
-    // Search autocomplete
-    els.searchBox.addEventListener('input', (e) => {
-      const query = e.target.value.trim().toLowerCase();
-      if (!query || query.length < 2) {
-        els.searchSuggestions.classList.remove('active');
-        els.searchSuggestions.innerHTML = '';
-        renderAll();
-        return;
-      }
-
-      // Gather suggestions from people, headlines, and occupations
-      const suggestions = new Map();
-      
-      PEOPLE.forEach(p => {
-        if (p.person.toLowerCase().includes(query)) {
-          suggestions.set(`person:${p.person}`, {type: 'Person', value: p.person});
-        }
-        if (p.occupation.toLowerCase().includes(query)) {
-          suggestions.set(`occupation:${p.occupation}`, {type: 'Occupation', value: p.occupation});
-        }
-      });
-      
-      ISSUES.forEach(i => {
-        if (i.cover_headline.toLowerCase().includes(query)) {
-          suggestions.set(`headline:${i.cover_headline}`, {type: 'Headline', value: i.cover_headline});
-        }
-      });
-
-      const matches = Array.from(suggestions.values()).slice(0, 8);
-      
-      if (matches.length === 0) {
-        els.searchSuggestions.classList.remove('active');
-        els.searchSuggestions.innerHTML = '';
-      } else {
-        els.searchSuggestions.innerHTML = matches.map(m => 
-          `<div class="search-suggestion" data-value="${m.value}">
-            <span class="suggestion-label">${m.type}:</span> ${m.value}
-          </div>`
-        ).join('');
-        els.searchSuggestions.classList.add('active');
-      }
-      
-      renderAll();
-    });
-
-    // Handle suggestion clicks
-    els.searchSuggestions.addEventListener('click', (e) => {
-      const suggestion = e.target.closest('.search-suggestion');
-      if (suggestion) {
-        els.searchBox.value = suggestion.dataset.value;
-        els.searchSuggestions.classList.remove('active');
-        els.searchSuggestions.innerHTML = '';
-        renderAll();
-      }
-    });
-
-    // Close suggestions when clicking outside
-    document.addEventListener('click', (e) => {
-      if (!e.target.closest('.search-wrapper')) {
-        els.searchSuggestions.classList.remove('active');
-      }
-    });
-
-    // Toggle All Cover Types button
-    els.toggleAllTypes.addEventListener('click', (e) => {
-      e.preventDefault();
-      const options = Array.from(els.typeSelect.options);
-      const allSelected = options.every(o => o.selected);
-      options.forEach(o => o.selected = !allSelected);
-      renderAll();
-    });
-
-    els.resetBtn.addEventListener('click', ()=>{
-      Array.from(els.typeSelect.options).forEach(o=> o.selected=true);
-      els.sexSelect.value='any'; els.scoreRange.value=0; els.searchBox.value='';
-      els.searchSuggestions.classList.remove('active');
-      els.searchSuggestions.innerHTML = '';
-      els.t_pol.checked = els.t_every.checked = els.t_dias.checked = els.t_ent.checked = true;
-      renderAll();
-    });
-
-    // Initial render
-    renderAll();
-
-    // Enforce tooltip styling - Observable Plot uses SVG text elements
-    function enforceTooltipStyle(){
-      // Target all SVG text elements that might be in tooltips
-      document.querySelectorAll('[role="tooltip"] text, [role="tooltip"] tspan').forEach(el => {
-        el.style.setProperty('fill', '#000', 'important');
-      });
-      // Ensure tooltip container has light background
-      document.querySelectorAll('[role="tooltip"], div[role="tooltip"], .plot-tooltip').forEach(tt => {
-        tt.style.setProperty('background', '#fff', 'important');
-        tt.style.setProperty('background-color', '#fff', 'important');
-        tt.style.setProperty('border', '1px solid #333', 'important');
-        tt.style.setProperty('box-shadow', '0 4px 16px rgba(0,0,0,.25)', 'important');
-        tt.style.setProperty('color', '#000', 'important');
-      });
+    } catch (err) {
+      console.error("Error loading default CSV:", err);
     }
-    const __plotTooltipObserver = new MutationObserver(muts => {
-      for (const m of muts){
-        for (const n of m.addedNodes || []){
-          if (n.nodeType === 1 && (n.classList?.contains('plot-tooltip') || n.getAttribute('role')==='tooltip' || n.matches?.('.plot, .plot *, [role="tooltip"]'))){
-            enforceTooltipStyle();
-          }
-        }
+  }
+
+  async function readCsvFile(file) {
+    const text = await file.text();
+    return d3.csvParse(text);
+  }
+
+  // "Load Issues CSV" button – expects your Jet schema
+  els.csvIssues.addEventListener("change", async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const rows = await readCsvFile(f);
+    ISSUES = normalizeIssuesFromJetCsv(rows);
+    PEOPLE = explodePeople(ISSUES);
+    LEDGER = buildLedger(PEOPLE);
+    renderAll();
+  });
+
+  // Optional: custom ledger CSV
+  els.csvLedger.addEventListener("change", async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const rows = await readCsvFile(f);
+    const required = new Set([
+      "date",
+      "issue_date",
+      "person",
+      "query_1",
+      "query_2",
+      "query_3",
+      "sources_checked",
+      "status",
+      "outcome_notes"
+    ]);
+    const cols = rows.columns || (rows.length ? Object.keys(rows[0]) : []);
+    const hasAll = Array.from(required).every((k) => cols.includes(k));
+    if (!hasAll) {
+      alert("Ledger CSV missing required columns. Keeping synthetic ledger.");
+      return;
+    }
+    LEDGER = rows;
+    renderAll();
+  });
+
+  // --------- FILTER EVENTS ---------
+  [
+    els.typeSelect,
+    els.sexSelect,
+    els.scoreRange,
+    els.t_pol,
+    els.t_every,
+    els.t_dias,
+    els.t_ent
+  ].forEach((el) => el.addEventListener("input", renderAll));
+
+  // Search + suggestions
+  els.searchBox.addEventListener("input", (e) => {
+    const query = e.target.value.trim().toLowerCase();
+    if (!query || query.length < 2) {
+      els.searchSuggestions.classList.remove("active");
+      els.searchSuggestions.innerHTML = "";
+      renderAll();
+      return;
+    }
+
+    const suggestions = new Map();
+
+    PEOPLE.forEach((p) => {
+      if (p.person.toLowerCase().includes(query)) {
+        suggestions.set(`person:${p.person}`, {
+          type: "Person",
+          value: p.person
+        });
+      }
+      if ((p.occupation || "").toLowerCase().includes(query)) {
+        suggestions.set(`occupation:${p.occupation}`, {
+          type: "Occupation",
+          value: p.occupation
+        });
       }
     });
-    __plotTooltipObserver.observe(document.body, {childList:true, subtree:true});
-  </script>
+
+    ISSUES.forEach((i) => {
+      if ((i.cover_headline || "").toLowerCase().includes(query)) {
+        suggestions.set(`headline:${i.cover_headline}`, {
+          type: "Headline",
+          value: i.cover_headline
+        });
+      }
+    });
+
+    const matches = Array.from(suggestions.values()).slice(0, 8);
+
+    if (!matches.length) {
+      els.searchSuggestions.classList.remove("active");
+      els.searchSuggestions.innerHTML = "";
+    } else {
+      els.searchSuggestions.innerHTML = matches
+        .map(
+          (m) => `
+        <div class="search-suggestion" data-value="${m.value}">
+          <span class="suggestion-label">${m.type}:</span> ${m.value}
+        </div>`
+        )
+        .join("");
+      els.searchSuggestions.classList.add("active");
+    }
+
+    renderAll();
+  });
+
+  els.searchSuggestions.addEventListener("click", (e) => {
+    const suggestion = e.target.closest(".search-suggestion");
+    if (suggestion) {
+      els.searchBox.value = suggestion.dataset.value;
+      els.searchSuggestions.classList.remove("active");
+      els.searchSuggestions.innerHTML = "";
+      renderAll();
+    }
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".search-wrapper")) {
+      els.searchSuggestions.classList.remove("active");
+    }
+  });
+
+  els.toggleAllTypes.addEventListener("click", (e) => {
+    e.preventDefault();
+    const options = Array.from(els.typeSelect.options);
+    const allSelected = options.every((o) => o.selected);
+    options.forEach((o) => (o.selected = !allSelected));
+    renderAll();
+  });
+
+  els.resetBtn.addEventListener("click", () => {
+    Array.from(els.typeSelect.options).forEach((o) => (o.selected = true));
+    els.sexSelect.value = "any";
+    els.scoreRange.value = 0;
+    els.searchBox.value = "";
+    els.searchSuggestions.classList.remove("active");
+    els.searchSuggestions.innerHTML = "";
+    els.t_pol.checked = els.t_every.checked = els.t_dias.checked = els.t_ent.checked = true;
+    renderAll();
+  });
+
+  // --------- TOOLTIP STYLE HACK (same as before) ---------
+  function enforceTooltipStyle() {
+    document
+      .querySelectorAll('[role="tooltip"] text, [role="tooltip"] tspan')
+      .forEach((el) => {
+        el.style.setProperty("fill", "#000", "important");
+      });
+
+    document
+      .querySelectorAll(
+        '[role="tooltip"], div[role="tooltip"], .plot-tooltip'
+      )
+      .forEach((tt) => {
+        tt.style.setProperty("background", "#fff", "important");
+        tt.style.setProperty("background-color", "#fff", "important");
+        tt.style.setProperty("border", "1px solid #333", "important");
+        tt.style.setProperty("box-shadow", "0 4px 16px rgba(0,0,0,.25)", "important");
+        tt.style.setProperty("color", "#000", "important");
+      });
+  }
+
+  const __plotTooltipObserver = new MutationObserver((muts) => {
+    for (const m of muts) {
+      for (const n of m.addedNodes || []) {
+        if (
+          n.nodeType === 1 &&
+          (n.classList?.contains("plot-tooltip") ||
+            n.getAttribute("role") === "tooltip" ||
+            n.matches?.(".plot, .plot *, [role='tooltip']"))
+        ) {
+          enforceTooltipStyle();
+        }
+      }
+    }
+  });
+  __plotTooltipObserver.observe(document.body, {
+    childList: true,
+    subtree: true
+  });
+
+  // --------- GO! ---------
+  initFromDefaultCsv();
+</script>
 </body>
 </html>
