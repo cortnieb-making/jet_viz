@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Jet 1964 — Interactive Notebook ( Cort edits to Jet viz)</title>
+<h1>JET LIVE TEST 777</h1>
+  <style>
+    :root { --bg:#0b0b0c; --fg:#f5f5f7; --muted:#b5b6bd; --card:#141418; --accent:#7aa2ff; }
+    html,body { margin:0; padding:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial; }
+    a { color: var(--accent); }
+    header { padding: 24px 24px 0 24px; }
+    h1 { font-size: 28px; margin:0 0 4px 0; }
+    h2 { font-size: 18px; color: var(--muted); font-weight:500; margin:4px 0 0 0; }
+    .wrap { padding: 16px 24px 40px; max-width: 1200px; margin: 0 auto; }
+    .controls { display:grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 12px; align-items:end; margin-bottom: 16px; }
+    .control { background: var(--card); padding: 10px 12px; border-radius: 14px; border:1px solid #22232a; }
+    .control label { display:block; font-size:12px; color:var(--muted); margin-bottom:6px; }
+    select, input[type="text"], input[type="range"] { width:100%; background:#0e0f13; color:var(--fg); border:1px solid #2a2b33; border-radius:10px; padding:8px; box-sizing: border-box; }
+    input[type="checkbox"] { transform: scale(1.2); margin-right: 6px; }
+    .btn { background:#1a1b22; color:var(--fg); border:1px solid #2a2b33; padding:9px 12px; border-radius:12px; cursor:pointer; }
+    .btn:hover { border-color:#3a3b45; }
+    .grid { display:grid; grid-template-columns: repeat(12, minmax(0,1fr)); gap: 16px; }
+    .card { grid-column: span 12; background: var(--card); border:1px solid #22232a; border-radius: 16px; padding: 14px; }
+    .card h3 { margin: 0 0 8px 2px; font-size: 16px; color: var(--muted); font-weight:600; }
+    figure { margin: 0; }
+    .meta { color: var(--muted); font-size: 12px; }
+    .two { grid-column: span 6; }
+    .three { grid-column: span 4; }
+    .xs { font-size: 12px; color: var(--muted); }
+    table { width:100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #262730; }
+    .pill { display:inline-block; padding:2px 8px; border-radius:999px; border:1px solid #2a2b33; background:#101118; font-size:12px; }
+    @media (max-width: 980px){ .controls{ grid-template-columns: repeat(2, minmax(0,1fr)); } .two,.three{ grid-column: span 12; } }
+
+    /* Observable Plot uses inline SVG - override its default white text */
+    svg { color-scheme: light; }
+
+    /* Info icon tooltip */
+    .info-icon { 
+      display: inline-flex; 
+      align-items: center; 
+      justify-content: center; 
+      width: 16px; 
+      height: 16px; 
+      border-radius: 50%; 
+      background: #2a2b33; 
+      color: var(--muted); 
+      font-size: 11px; 
+      font-weight: bold; 
+      cursor: help; 
+      margin-left: 4px;
+      position: relative;
+    }
+    .info-icon:hover { background: #3a3b45; }
+    .info-tooltip { 
+      display: none; 
+      position: absolute; 
+      bottom: 100%; 
+      left: 50%; 
+      transform: translateX(-50%); 
+      margin-bottom: 8px; 
+      padding: 6px 10px; 
+      background: var(--card); 
+      border: 1px solid #2a2b33; 
+      border-radius: 8px; 
+      color: var(--fg); 
+      font-size: 10px; 
+      white-space: normal; 
+      z-index: 1000;
+      box-shadow: 0 4px 12px rgba(0,0,0,.5);
+      max-width: 280px;
+      line-height: 1.3;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .info-icon:hover .info-tooltip { display: block; }
+    
+    /* Wider tooltip for specific cases */
+    .info-tooltip.wide { 
+      max-width: 450px; 
+      max-height: none;
+      line-height: 1.2;
+      padding: 8px 12px;
+    }
+
+    /* Search autocomplete dropdown */
+    .search-wrapper { position: relative; width: 100%; }
+    .search-wrapper input[type="text"] { 
+      width: 100%; 
+      box-sizing: border-box;
+    }
+    .search-suggestions { 
+      position: absolute; 
+      top: 100%; 
+      left: 0; 
+      right: 0; 
+      background: var(--card); 
+      border: 1px solid #2a2b33; 
+      border-top: none;
+      border-radius: 0 0 10px 10px; 
+      max-height: 200px; 
+      overflow-y: auto; 
+      z-index: 1000;
+      display: none;
+    }
+    .search-suggestions.active { display: block; }
+    .search-suggestion { 
+      padding: 8px 12px; 
+      cursor: pointer; 
+      border-bottom: 1px solid #1a1b22; 
+      font-size: 13px;
+    }
+    .search-suggestion:hover { background: #1a1b22; }
+    .search-suggestion:last-child { border-bottom: none; }
+    .suggestion-label { color: var(--muted); font-size: 11px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Jet (1964) — CORTNIE'S TEST TEW Interactive Narrative + Researchability</h1>
+    <h2>Its working! Observable Plot dashboard with fake data (drop in your CSVs when ready)</h2>
+  </header>
+  <div class="wrap">
+    <div class="controls">
+      <div class="control">
+        <label>Cover types <button class="btn" id="toggleAllTypes" style="padding: 4px 8px; font-size: 11px; margin-left: 4px;">All</button></label>
+       <select id="typeSelect" multiple size="6" title="Use Cmd/Ctrl to multi-select">
+  <option value="Freedom Struggle / State Power" selected>Freedom Struggle / State Power</option>
+  <option value="Education / Youth" selected>Education / Youth</option>
+  <option value="Beauty / Body" selected>Beauty / Body</option>
+  <option value="Diaspora" selected>Diaspora</option>
+  <option value="Everyday Excellence" selected>Everyday Excellence</option>
+  <option value="Other" selected>Other</option>
+</select>
+      </div>
+      <div class="control">
+        <label>Sex filter</label>
+        <select id="sexSelect">
+          <option value="any" selected>Any</option>
+          <option value="F">Female</option>
+          <option value="M">Male</option>
+        </select>
+      </div>
+      <div class="control">
+        <label>Traceability score ≥ <span id="scoreVal" class="pill">0</span>
+          <span class="info-icon">i
+            <span class="info-tooltip wide">
+              <strong>Traceability Score (0-6):</strong><br/>
+              Sum of available evidence sources:<br/>
+              • Wikipedia entry<br/>
+              • NY Times mention<br/>
+              • Court records<br/>
+              • Social descendants<br/>
+              • ArchiveGrid presence<br/>
+              • Repository inclusion
+            </span>
+          </span>
+        </label>
+        <input id="scoreRange" type="range" min="0" max="6" step="1" value="0" />
+      </div>
+      <div class="control">
+        <label>Theme emphasis</label>
+        <div><label class="xs"><input type="checkbox" id="t_pol" checked /> Civil Rights</label></div>
+        <div><label class="xs"><input type="checkbox" id="t_every" checked /> Everyday</label></div>
+        <div><label class="xs"><input type="checkbox" id="t_dias" checked /> Diaspora</label></div>
+        <div><label class="xs"><input type="checkbox" id="t_ent" checked /> Entertainment</label></div>
+      </div>
+      <div class="control">
+        <label>Search (person / headline / occupation)</label>
+        <div class="search-wrapper">
+          <input id="searchBox" type="text" placeholder="e.g., King, 'Wives of Negro Freedom Fighters', singer…" autocomplete="off" />
+          <div id="searchSuggestions" class="search-suggestions"></div>
+        </div>
+      </div>
+      <div class="control">
+        <label>Data</label>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <button class="btn" id="resetBtn" title="Clear filters">Reset filters</button>
+          <label class="btn" for="csvIssues">Load Issues CSV</label>
+          <input id="csvIssues" type="file" accept=".csv" style="display:none" />
+          <span class="info-icon">i
+            <span class="info-tooltip wide">
+              <strong>Issues CSV Schema:</strong><br/>
+              issue_date, cover_type, person, sex, occupation, cover_headline, cover_color, pose, political_theme, diaspora_theme, everyday_theme, has_wikipedia, has_nytimes, has_court_records, has_social_descendants, in_archivegrid, in_repository, traceability_score, searchability_status
+            </span>
+          </span>
+          <label class="btn" for="csvLedger">Load Ledger CSV</label>
+          <input id="csvLedger" type="file" accept=".csv" style="display:none" />
+          <span class="info-icon">i
+            <span class="info-tooltip">
+              <strong>Ledger CSV (Optional):</strong><br/>
+              date, issue_date, person, query_1, query_2, query_3, sources_checked, status, outcome_notes
+            </span>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid" id="grid">
+      <div class="card two"><h3>Themes by Month (lines)</h3><figure id="figThemes"></figure><div class="meta">Counts of issues per theme. Toggle theme emphasis in controls.</div></div>
+      <div class="card two"><h3>Female Share by Month</h3><figure id="figFemale"></figure></div>
+      <div class="card three"><h3>Cover Color Frequency</h3><figure id="figColors"></figure></div>
+      <div class="card three"><h3>Top Occupations (People)</h3><figure id="figOcc"></figure></div>
+      <div class="card three"><h3>Traceability Evidence Stages</h3><figure id="figStages"></figure></div>
+      <div class="card two"><h3>Traceability Score Over Time</h3><figure id="figScatter"></figure><div class="meta">Point = issue; color = cover type; tooltip shows people + headline.</div></div>
+      <div class="card twelve" style="grid-column: span 12;"><h3>Research Ledger (interactive)</h3><div id="ledgerWrap"></div></div>
+    </div>
+
+  </div>
+
+  <script type="module">
+  import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
+  import * as Plot from "https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6/+esm";
+
+  // --------- UTILITIES ---------
+  const parseDate = d3.timeParse("%Y-%m-%d");
+  const formatMonth = d3.timeFormat("%Y-%m");
+  const formatDate = d3.timeFormat("%Y-%m-%d");
+  const parseMonth = d3.timeParse("%Y-%m");
+
+  const CSV_DEFAULT_PATH = "jet_1964_covers.csv"; // <-- your exported file
+
+  function choice(a) {
+    return a[Math.floor(Math.random() * a.length)];
+  }
+
+  function boolFrom(row, field) {
+    if (!field || !(field in row)) return 0;
+    const v = row[field];
+    if (v == null) return 0;
+    const s = String(v).trim().toLowerCase();
+    if (!s || s === "0" || s === "no" || s === "false" || s === "nan") return 0;
+    return 1;
+  }
+
+  // Find a column whose header starts with a given prefix
+  function findCol(columns, prefix) {
+    return columns.find((c) => c.startsWith(prefix)) || null;
+  }
+
+  // --------- NORMALIZE YOUR JET CSV INTO "ISSUES" SHAPE ---------
+  function normalizeIssuesFromJetCsv(rows) {
+    const columns = rows.columns || (rows.length ? Object.keys(rows[0]) : []);
+
+    const COL_WELLKNOWN = findCol(columns, "wellknown_theme:");
+    const COL_FREEDOM = findCol(columns, "freedomstruggle_theme:");
+    const COL_WOMEN = findCol(columns, "womensrights_theme:");
+    const COL_EDU = findCol(columns, "education_youth_theme:");
+    const COL_STATE = findCol(columns, "statepower_theme:");
+    const COL_BEAUTY = findCol(columns, "beautybodyimage_theme:");
+    const COL_DIASP = findCol(columns, "diaspora_poc_theme:");
+    const COL_ORDINARY = findCol(
+      columns,
+      "ordinaryexcellence_everyday_theme:"
+    );
+
+    return rows.map((r) => {
+      const year = +r.year || 1964;
+      const order = +r.issue_order || 1;
+      const date = new Date(year, 0, 1 + (order - 1) * 7); // weekly-ish timeline
+      const issue_date = formatDate(date);
+
+      const political_theme = COL_FREEDOM ? boolFrom(r, COL_FREEDOM) : 0;
+      const diaspora_theme = COL_DIASP ? boolFrom(r, COL_DIASP) : 0;
+      const everyday_theme = COL_ORDINARY ? boolFrom(r, COL_ORDINARY) : 0;
+      const education_youth_theme = COL_EDU ? boolFrom(r, COL_EDU) : 0;
+      const statepower_theme = COL_STATE ? boolFrom(r, COL_STATE) : 0;
+      const beautybodyimage_theme = COL_BEAUTY ? boolFrom(r, COL_BEAUTY) : 0;
+      const wellknown_theme = COL_WELLKNOWN ? boolFrom(r, COL_WELLKNOWN) : 0;
+      const womensrights_theme = COL_WOMEN ? boolFrom(r, COL_WOMEN) : 0;
+
+      const has_wikipedia = boolFrom(r, "has_wikipedia");
+      const has_nytimes = boolFrom(r, "has_nytimes");
+      const has_court_records = boolFrom(r, "has_courtrecords");
+      const has_social_descendants = boolFrom(r, "has_socialdescendants");
+      const in_archivegrid = boolFrom(r, "in_archivegrid");
+      const in_repository = boolFrom(r, "in_repository");
+
+      const traceability_score =
+        has_wikipedia +
+        has_nytimes +
+        has_court_records +
+        has_social_descendants +
+        in_archivegrid +
+        in_repository;
+
+      const searchability_status =
+        traceability_score >= 4
+          ? "High"
+          : traceability_score >= 2
+          ? "Medium"
+          : "Low";
+
+      // Derive a cover_type label from your themes
+      let cover_type = "Other";
+      if (political_theme || statepower_theme) {
+        cover_type = "Freedom Struggle / State Power";
+      } else if (education_youth_theme) {
+        cover_type = "Education / Youth";
+      } else if (beautybodyimage_theme) {
+        cover_type = "Beauty / Body";
+      } else if (diaspora_theme) {
+        cover_type = "Diaspora";
+      } else if (everyday_theme) {
+        cover_type = "Everyday Excellence";
+      }
+
+      // Normalize sex to M/F where possible
+      let sex = (r.sex || "").trim();
+      sex = sex.toUpperCase().startsWith("F")
+        ? "F"
+        : sex.toUpperCase().startsWith("M")
+        ? "M"
+        : "";
+
+      return {
+        issue_date,
+        year,
+        issue_order: +r.issue_order || null,
+        issue_number: r.issue_number || "",
+        cover_number: +r.cover_number || null,
+
+        person: r.person || "",
+        occupation: r.occupation || "",
+        race: r.race || "",
+        sex,
+        cover_age: r.cover_age || "",
+
+        cover_Blackgirl: boolFrom(r, "cover_Blackgirl"),
+        cover_pose: r.cover_pose || "",
+        cover_color: r.cover_color || "",
+        masthead_color: r.masthead_color || "",
+        cover_headline: r.cover_headline || "",
+        cover_headline2: r.cover_headline2 || "",
+
+        wellknown_theme,
+        freedomstruggle_theme: political_theme,
+        womensrights_theme,
+        education_youth_theme,
+        statepower_theme,
+        beautybodyimage_theme,
+        diaspora_poc_theme: diaspora_theme,
+        erasure_theme: boolFrom(r, "erasure_theme"),
+        ordinaryexcellence_everyday_theme: everyday_theme,
+
+        has_wikipedia,
+        has_nytimes,
+        has_court_records,
+        has_social_descendants,
+        in_archivegrid,
+        in_repository,
+
+        traceability_score,
+        searchability_status,
+        cover_type,
+        link_issue: r.link_issue || ""
+      };
+    });
+  }
+
+  // Expand each row into per-person rows (keeps structure from mock)
+  function explodePeople(issues) {
+    const rows = [];
+    for (const r of issues) {
+      const names = String(r.person || "")
+        .split(";")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const sexes = String(r.sex || "")
+        .split(";")
+        .map((s) => s.trim());
+      const occs = String(r.occupation || "")
+        .split(";")
+        .map((s) => s.trim());
+
+      while (sexes.length < names.length) sexes.push("");
+      while (occs.length < names.length) occs.push(r.occupation || "");
+
+      for (let i = 0; i < names.length; i++) {
+        rows.push({
+          issue_date: r.issue_date,
+          person: names[i],
+          sex: sexes[i],
+          occupation: occs[i],
+          cover_type: r.cover_type,
+          cover_headline: r.cover_headline,
+          cover_color: r.cover_color,
+          pose: r.cover_pose,
+          political_theme: r.freedomstruggle_theme,
+          diaspora_theme: r.diaspora_poc_theme,
+          everyday_theme: r.ordinaryexcellence_everyday_theme,
+          traceability_score: r.traceability_score,
+          searchability_status: r.searchability_status,
+          has_wikipedia: r.has_wikipedia,
+          has_nytimes: r.has_nytimes,
+          has_court_records: r.has_court_records,
+          has_social_descendants: r.has_social_descendants,
+          in_archivegrid: r.in_archivegrid,
+          in_repository: r.in_repository
+        });
+      }
+    }
+    return rows;
+  }
+
+  function weightedIndex(weights) {
+    const total = d3.sum(weights);
+    let r = Math.random() * total;
+    for (let i = 0; i < weights.length; i++) {
+      r -= weights[i];
+      if (r < 0) return i;
+    }
+    return weights.length - 1;
+  }
+
+  // Very light synthetic "ledger" using your people list
+  function buildLedger(people) {
+    function fakeQueries(name) {
+      const base = [
+        `"${name}" Jet 1964`,
+        `"${name}" civil rights`,
+        `"${name}" site:wikipedia.org`,
+        `"${name}" archivegrid`,
+        `"${name}" obituary`,
+        `"${name}" newspapers 1960s`
+      ];
+      return d3.shuffle(base).slice(0, 3);
+    }
+
+    const statuses = ["Untraced", "Partially Traced", "Fully Traced"];
+    const weights = [2, 4, 4];
+    const srcs = [
+      "Wikipedia; NYT; ArchiveGrid",
+      "ProQuest; Local Newspaper",
+      "Ancestry; Court Archive",
+      "Institutional Repository; Social Media Descendants"
+    ];
+    const notes = {
+      Untraced: "No authoritative record found; notes added to revisit.",
+      "Partially Traced":
+        "One or two sources found; identity or date uncertain.",
+      "Fully Traced":
+        "Multiple sources confirm identity and life dates."
+    };
+
+    const sample =
+      people.length > 40 ? d3.shuffle(people).slice(0, 40) : people;
+
+    const rows = sample.map((p) => {
+      const q = fakeQueries(p.person);
+      const status = statuses[weightedIndex(weights)];
+      const monthIndex = Math.floor(Math.random() * 12);
+      const day = 1 + Math.floor(Math.random() * 28);
+      const date = new Date(1964, monthIndex, day);
+      return {
+        date: formatDate(date),
+        issue_date: p.issue_date,
+        person: p.person,
+        query_1: q[0],
+        query_2: q[1],
+        query_3: q[2],
+        sources_checked: choice(srcs),
+        status,
+        outcome_notes: notes[status]
+      };
+    });
+
+    return rows.sort((a, b) => d3.ascending(a.date, b.date));
+  }
+
+  // --------- STATE ---------
+  let ISSUES = [];
+  let PEOPLE = [];
+  let LEDGER = [];
+
+  const els = {
+    typeSelect: document.getElementById("typeSelect"),
+    sexSelect: document.getElementById("sexSelect"),
+    scoreRange: document.getElementById("scoreRange"),
+    scoreVal: document.getElementById("scoreVal"),
+    t_pol: document.getElementById("t_pol"),
+    t_every: document.getElementById("t_every"),
+    t_dias: document.getElementById("t_dias"),
+    t_ent: document.getElementById("t_ent"),
+    searchBox: document.getElementById("searchBox"),
+    searchSuggestions: document.getElementById("searchSuggestions"),
+    resetBtn: document.getElementById("resetBtn"),
+    toggleAllTypes: document.getElementById("toggleAllTypes"),
+    csvIssues: document.getElementById("csvIssues"),
+    csvLedger: document.getElementById("csvLedger")
+  };
+
+  function selectedTypes() {
+    return Array.from(els.typeSelect.selectedOptions).map((o) => o.value);
+  }
+
+  function applyFilters() {
+    const types = new Set(selectedTypes());
+    const sex = els.sexSelect.value;
+    const minScore = +els.scoreRange.value;
+    const q = els.searchBox.value.trim().toLowerCase();
+
+    const issuePass = ISSUES.filter((r) => {
+      const textHit =
+        !q ||
+        r.person.toLowerCase().includes(q) ||
+        (r.cover_headline || "").toLowerCase().includes(q) ||
+        (r.occupation || "").toLowerCase().includes(q);
+      return (
+        types.has(r.cover_type) &&
+        r.traceability_score >= minScore &&
+        textHit
+      );
+    });
+
+    const passDates = new Set(issuePass.map((d) => d.issue_date));
+    const peoplePass = PEOPLE.filter((p) => {
+      const textHit =
+        !q ||
+        p.person.toLowerCase().includes(q) ||
+        (p.occupation || "").toLowerCase().includes(q) ||
+        (p.cover_headline || "").toLowerCase().includes(q);
+      return (
+        passDates.has(p.issue_date) &&
+        (sex === "any" || p.sex === sex) &&
+        textHit
+      );
+    });
+
+    const ledgerPass = LEDGER.filter((l) => {
+      const textHit = !q || l.person.toLowerCase().includes(q);
+      return passDates.has(l.issue_date) && textHit;
+    });
+
+    return { issuePass, peoplePass, ledgerPass };
+  }
+
+  // --------- CHARTS (same as mock, but wired to your fields) ---------
+  function drawThemes(container, issues) {
+    const byMonth = d3
+      .rollups(
+        issues,
+        (v) => ({
+          CivilRights: d3.sum(v, (d) => d.freedomstruggle_theme),
+          Everyday: d3.sum(v, (d) => d.ordinaryexcellence_everyday_theme),
+          Diaspora: d3.sum(v, (d) => d.diaspora_poc_theme),
+          Entertainment: d3.sum(v, (d) => d.beautybodyimage_theme) // repurposed
+        }),
+        (d) => formatMonth(parseDate(d.issue_date))
+      )
+      .map(([month, obj]) => ({
+        month,
+        ...obj,
+        mdate: parseMonth(month)
+      }))
+      .sort((a, b) => d3.ascending(a.mdate, b.mdate));
+
+    const long = [];
+    for (const r of byMonth) {
+      if (els.t_pol.checked)
+        long.push({ mdate: r.mdate, theme: "Civil Rights", value: r.CivilRights });
+      if (els.t_every.checked)
+        long.push({ mdate: r.mdate, theme: "Everyday", value: r.Everyday });
+      if (els.t_dias.checked)
+        long.push({ mdate: r.mdate, theme: "Diaspora", value: r.Diaspora });
+      if (els.t_ent.checked)
+        long.push({
+          mdate: r.mdate,
+          theme: "Beauty / Body",
+          value: r.Entertainment
+        });
+    }
+
+    const fig = Plot.plot({
+      height: 320,
+      marginLeft: 42,
+      marginBottom: 70,
+      grid: true,
+      x: {
+        label: "Month",
+        ticks: d3.timeMonth.every(1),
+        tickFormat: d3.timeFormat("%Y-%m"),
+        tickRotate: -45
+      },
+      y: { label: "Issue Count", nice: true },
+      color: { legend: true },
+      marks: [
+        Plot.ruleY([0]),
+        Plot.lineY(long, {
+          x: "mdate",
+          y: "value",
+          stroke: "theme",
+          marker: true,
+          tip: { fill: "black", stroke: "white" }
+        })
+      ]
+    });
+    container.innerHTML = "";
+    container.appendChild(fig);
+  }
+
+  function drawFemaleShare(container, people) {
+    const byMonth = d3
+      .rollups(
+        people,
+        (v) => d3.mean(v, (d) => (d.sex === "F" ? 1 : 0)),
+        (d) => formatMonth(parseDate(d.issue_date))
+      )
+      .map(([month, share]) => ({
+        month,
+        share,
+        mdate: parseMonth(month)
+      }))
+      .sort((a, b) => d3.ascending(a.mdate, b.mdate));
+
+    const fig = Plot.plot({
+      height: 320,
+      marginBottom: 70,
+      grid: true,
+      x: {
+        label: "Month",
+        ticks: d3.timeMonth.every(1),
+        tickFormat: d3.timeFormat("%Y-%m"),
+        tickRotate: -45
+      },
+      y: { label: "Share Female", domain: [0, 1] },
+      marks: [
+        Plot.ruleY([0, 0.5, 1], {
+          strokeOpacity: (v) => (v === 1 ? 0.25 : 0.1)
+        }),
+        Plot.lineY(byMonth, {
+          x: "mdate",
+          y: "share",
+          marker: true,
+          tip: { fill: "black", stroke: "white" }
+        })
+      ]
+    });
+    container.innerHTML = "";
+    container.appendChild(fig);
+  }
+
+ function drawColorFreq(container, issues) {
+  const freq = d3
+    .rollups(
+      issues,
+      v => v.length,
+      d => d.cover_color
+    )
+    .map(([cover_color, count]) => ({ cover_color, count }))
+    .sort((a, b) => d3.descending(a.count, b.count));
+
+  // Map your cover_color labels to actual colors
+  const colorMap = {
+    "Red": "#e63946",
+    "Blue": "#457b9d",
+    "Yellow": "#ffd60a",
+    "Green": "#2a9d8f",
+    "Orange": "#f4a261",
+    "Pink": "#ff6b9d",
+    "Purple": "#9b5de5",
+    "Black & White": "#aaaaaa"  // use gray for B&W
+  };
+
+  const fig = Plot.plot({
+    height: 320,
+    marginBottom: 60,
+    x: { label: "Cover Color", tickRotate: -35 },
+    y: { label: "Frequency" },
+    color: { legend: false }, // we don’t need a color legend here
+    marks: [
+      Plot.barY(freq, {
+        x: "cover_color",
+        y: "count",
+        // color each bar according to its cover_color label
+        fill: d => colorMap[d.cover_color] || "#666",
+        tip: { fill: "black", stroke: "white" }
+      })
+    ]
+  });
+
+  container.innerHTML = "";
+  container.appendChild(fig);
+  }
+
+  function drawOcc(container, people) {
+    const top = d3
+      .rollups(
+        people,
+        (v) => v.length,
+        (d) => d.occupation
+      )
+      .map(([occupation, count]) => ({ occupation, count }))
+      .sort((a, b) => d3.descending(a.count, b.count))
+      .slice(0, 10)
+      .sort((a, b) => d3.ascending(a.count, b.count));
+
+    const fig = Plot.plot({
+      height: 320,
+      marginLeft: 150,
+      x: { label: "Count" },
+      marks: [
+        Plot.barX(top, {
+          x: "count",
+          y: "occupation",
+          sort: { y: "x" },
+          tip: { fill: "black", stroke: "white" }
+        })
+      ]
+    });
+    container.innerHTML = "";
+    container.appendChild(fig);
+  }
+
+  function drawStages(container, issues) {
+    const keys = [
+      "has_wikipedia",
+      "has_nytimes",
+      "has_court_records",
+      "has_social_descendants",
+      "in_archivegrid",
+      "in_repository"
+    ];
+    const rows = keys.map((k) => ({
+      stage: k,
+      count: d3.sum(issues, (d) => d[k])
+    }));
+
+    const fig = Plot.plot({
+      height: 320,
+      marginBottom: 50,
+      x: { tickRotate: -25 },
+      y: { label: "Issues with Evidence" },
+      marks: [
+        Plot.barY(rows, {
+          x: "stage",
+          y: "count",
+          tip: { fill: "black", stroke: "white" }
+        })
+      ]
+    });
+    container.innerHTML = "";
+    container.appendChild(fig);
+  }
+
+  function drawScatter(container, issues) {
+    const data = issues.map((d) => ({
+      date: parseDate(d.issue_date),
+      score: d.traceability_score,
+      cover_type: d.cover_type,
+      title: d.cover_headline,
+      people: d.person
+    }));
+
+    const fig = Plot.plot({
+      height: 340,
+      grid: true,
+      x: { label: "Issue Date (1964)" },
+      y: { label: "Traceability Score (0–6)", domain: [0, 6] },
+      color: { legend: true },
+      marks: [
+        Plot.dot(data, {
+          x: "date",
+          y: "score",
+          stroke: "cover_type",
+          fill: "cover_type",
+          r: 5,
+          tip: { fill: "black", stroke: "white" },
+          title: (d) => `${d.people}\n${d.title}`
+        })
+      ]
+    });
+    container.innerHTML = "";
+    container.appendChild(fig);
+  }
+
+  function drawLedgerTable(container, ledger) {
+    const rows = ledger.slice(0, 250);
+    const table = document.createElement("table");
+    table.innerHTML =
+      "<thead><tr><th>Date</th><th>Issue</th><th>Person</th><th>Queries</th><th>Sources</th><th>Status</th></tr></thead>";
+    const tb = document.createElement("tbody");
+    for (const r of rows) {
+      const q = [r.query_1, r.query_2, r.query_3]
+        .filter(Boolean)
+        .join(" • ");
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${r.date}</td><td>${r.issue_date}</td><td>${r.person}</td><td>${q}</td><td><span class="pill">${r.sources_checked}</span></td><td><span class="pill">${r.status}</span></td>`;
+      tr.title = r.outcome_notes;
+      tb.appendChild(tr);
+    }
+    table.appendChild(tb);
+    container.innerHTML = "";
+    container.appendChild(table);
+  }
+
+  const refs = {
+    figThemes: document.getElementById("figThemes"),
+    figFemale: document.getElementById("figFemale"),
+    figColors: document.getElementById("figColors"),
+    figOcc: document.getElementById("figOcc"),
+    figStages: document.getElementById("figStages"),
+    figScatter: document.getElementById("figScatter"),
+    ledgerWrap: document.getElementById("ledgerWrap")
+  };
+
+  function renderAll() {
+    if (!ISSUES.length) return;
+    els.scoreVal.textContent = els.scoreRange.value;
+    const { issuePass, peoplePass, ledgerPass } = applyFilters();
+    drawThemes(refs.figThemes, issuePass);
+    drawFemaleShare(refs.figFemale, peoplePass);
+    drawColorFreq(refs.figColors, issuePass);
+    drawOcc(refs.figOcc, peoplePass);
+    drawStages(refs.figStages, issuePass);
+    drawScatter(refs.figScatter, issuePass);
+    drawLedgerTable(refs.ledgerWrap, ledgerPass);
+    enforceTooltipStyle();
+  }
+
+  // --------- CSV LOADING (DEFAULT + OPTIONAL UPLOAD) ---------
+  async function initFromDefaultCsv() {
+    try {
+      const rows = await d3.csv(CSV_DEFAULT_PATH);
+      ISSUES = normalizeIssuesFromJetCsv(rows);
+      PEOPLE = explodePeople(ISSUES);
+      LEDGER = buildLedger(PEOPLE);
+      renderAll();
+    } catch (err) {
+      console.error("Error loading default CSV:", err);
+    }
+  }
+
+  async function readCsvFile(file) {
+    const text = await file.text();
+    return d3.csvParse(text);
+  }
+
+  // "Load Issues CSV" button – expects your Jet schema
+  els.csvIssues.addEventListener("change", async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const rows = await readCsvFile(f);
+    ISSUES = normalizeIssuesFromJetCsv(rows);
+    PEOPLE = explodePeople(ISSUES);
+    LEDGER = buildLedger(PEOPLE);
+    renderAll();
+  });
+
+  // Optional: custom ledger CSV
+  els.csvLedger.addEventListener("change", async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const rows = await readCsvFile(f);
+    const required = new Set([
+      "date",
+      "issue_date",
+      "person",
+      "query_1",
+      "query_2",
+      "query_3",
+      "sources_checked",
+      "status",
+      "outcome_notes"
+    ]);
+    const cols = rows.columns || (rows.length ? Object.keys(rows[0]) : []);
+    const hasAll = Array.from(required).every((k) => cols.includes(k));
+    if (!hasAll) {
+      alert("Ledger CSV missing required columns. Keeping synthetic ledger.");
+      return;
+    }
+    LEDGER = rows;
+    renderAll();
+  });
+
+  // --------- FILTER EVENTS ---------
+  [
+    els.typeSelect,
+    els.sexSelect,
+    els.scoreRange,
+    els.t_pol,
+    els.t_every,
+    els.t_dias,
+    els.t_ent
+  ].forEach((el) => el.addEventListener("input", renderAll));
+
+  // Search + suggestions
+  els.searchBox.addEventListener("input", (e) => {
+    const query = e.target.value.trim().toLowerCase();
+    if (!query || query.length < 2) {
+      els.searchSuggestions.classList.remove("active");
+      els.searchSuggestions.innerHTML = "";
+      renderAll();
+      return;
+    }
+
+    const suggestions = new Map();
+
+    PEOPLE.forEach((p) => {
+      if (p.person.toLowerCase().includes(query)) {
+        suggestions.set(`person:${p.person}`, {
+          type: "Person",
+          value: p.person
+        });
+      }
+      if ((p.occupation || "").toLowerCase().includes(query)) {
+        suggestions.set(`occupation:${p.occupation}`, {
+          type: "Occupation",
+          value: p.occupation
+        });
+      }
+    });
+
+    ISSUES.forEach((i) => {
+      if ((i.cover_headline || "").toLowerCase().includes(query)) {
+        suggestions.set(`headline:${i.cover_headline}`, {
+          type: "Headline",
+          value: i.cover_headline
+        });
+      }
+    });
+
+    const matches = Array.from(suggestions.values()).slice(0, 8);
+
+    if (!matches.length) {
+      els.searchSuggestions.classList.remove("active");
+      els.searchSuggestions.innerHTML = "";
+    } else {
+      els.searchSuggestions.innerHTML = matches
+        .map(
+          (m) => `
+        <div class="search-suggestion" data-value="${m.value}">
+          <span class="suggestion-label">${m.type}:</span> ${m.value}
+        </div>`
+        )
+        .join("");
+      els.searchSuggestions.classList.add("active");
+    }
+
+    renderAll();
+  });
+
+  els.searchSuggestions.addEventListener("click", (e) => {
+    const suggestion = e.target.closest(".search-suggestion");
+    if (suggestion) {
+      els.searchBox.value = suggestion.dataset.value;
+      els.searchSuggestions.classList.remove("active");
+      els.searchSuggestions.innerHTML = "";
+      renderAll();
+    }
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".search-wrapper")) {
+      els.searchSuggestions.classList.remove("active");
+    }
+  });
+
+  els.toggleAllTypes.addEventListener("click", (e) => {
+    e.preventDefault();
+    const options = Array.from(els.typeSelect.options);
+    const allSelected = options.every((o) => o.selected);
+    options.forEach((o) => (o.selected = !allSelected));
+    renderAll();
+  });
+
+  els.resetBtn.addEventListener("click", () => {
+    Array.from(els.typeSelect.options).forEach((o) => (o.selected = true));
+    els.sexSelect.value = "any";
+    els.scoreRange.value = 0;
+    els.searchBox.value = "";
+    els.searchSuggestions.classList.remove("active");
+    els.searchSuggestions.innerHTML = "";
+    els.t_pol.checked = els.t_every.checked = els.t_dias.checked = els.t_ent.checked = true;
+    renderAll();
+  });
+
+  // --------- TOOLTIP STYLE HACK (same as before) ---------
+  function enforceTooltipStyle() {
+    document
+      .querySelectorAll('[role="tooltip"] text, [role="tooltip"] tspan')
+      .forEach((el) => {
+        el.style.setProperty("fill", "#000", "important");
+      });
+
+    document
+      .querySelectorAll(
+        '[role="tooltip"], div[role="tooltip"], .plot-tooltip'
+      )
+      .forEach((tt) => {
+        tt.style.setProperty("background", "#fff", "important");
+        tt.style.setProperty("background-color", "#fff", "important");
+        tt.style.setProperty("border", "1px solid #333", "important");
+        tt.style.setProperty("box-shadow", "0 4px 16px rgba(0,0,0,.25)", "important");
+        tt.style.setProperty("color", "#000", "important");
+      });
+  }
+
+  const __plotTooltipObserver = new MutationObserver((muts) => {
+    for (const m of muts) {
+      for (const n of m.addedNodes || []) {
+        if (
+          n.nodeType === 1 &&
+          (n.classList?.contains("plot-tooltip") ||
+            n.getAttribute("role") === "tooltip" ||
+            n.matches?.(".plot, .plot *, [role='tooltip']"))
+        ) {
+          enforceTooltipStyle();
+        }
+      }
+    }
+  });
+  __plotTooltipObserver.observe(document.body, {
+    childList: true,
+    subtree: true
+  });
+
+  // --------- GO! ---------
+  initFromDefaultCsv();
+</script>
+</body>
+</html>
